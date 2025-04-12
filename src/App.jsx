@@ -1,35 +1,82 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react';
+import SearchBar from './components/SearchBar/SearchBar';
+import ImageGallery from './components/ImageGallery/ImageGallery';
+import ImageModal from './components/ImageModal/ImageModal';
+import Loader from './components/Loader/Loader';
+import LoadMoreBtn from './components/LoadMoreBtn/LoadMoreBtn';
+import ErrorMessage from './components/ErrorMessage/ErrorMessage';
+import { fetchImages } from './components/Api/api';
 
-function App() {
-  const [count, setCount] = useState(0)
+const App = () => {
+  const [images, setImages] = useState([]);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [totalPages, setTotalPages] = useState(0);
+
+  useEffect(() => {
+    if (!query) return;
+
+    const loadImages = async () => {
+      try {
+        setIsLoading(true);
+        const { results, totalPages } = await fetchImages(query, page);
+        setImages((prev) => (page === 1 ? results : [...prev, ...results]));
+        setTotalPages(totalPages);
+      } catch {
+        setError('Failed to fetch images. Try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadImages();
+  }, [query, page]);
+
+  const handleSearch = (newQuery) => {
+    if (newQuery === query) return;
+    setQuery(newQuery);
+    setPage(1);
+    setImages([]);
+    setError('');
+  };
+
+  const handleLoadMore = () => {
+    setPage((prev) => prev + 1);
+  };
+
+  const openModal = (image) => {
+    setSelectedImage(image);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setSelectedImage(null);
+    setIsModalOpen(false);
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div>
+      <SearchBar onSubmit={handleSearch} />
 
-export default App
+      {error && <ErrorMessage message={error} />}
+
+      {images.length > 0 && (
+        <ImageGallery images={images} onImageClick={openModal} />
+      )}
+
+      {isLoading && <Loader />}
+
+      {images.length > 0 && page < totalPages && !isLoading && (
+        <LoadMoreBtn onClick={handleLoadMore} />
+      )}
+
+      <ImageModal isOpen={isModalOpen} onClose={closeModal} image={selectedImage} />
+    </div>
+  );
+};
+
+export default App;
